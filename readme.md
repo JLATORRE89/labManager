@@ -20,8 +20,8 @@ A web interface for easily deploying Red Hat Certified System Administrator (RHC
 
 1. Clone this repository:
    ```
-   git clone https://github.com/JLATORRE89/rhcsa9-lab-deployer.git
-   cd rhcsa9-lab-deployer
+   git clone https://github.com/JLATORRE89/labManager.git
+   cd labManager
    ```
 
 2. Deploy to your web server or run locally:
