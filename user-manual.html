@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RHCSA9 Lab Deployer - User Manual</title>
+    <style>
+        :root {
+            --primary-color: #e74c3c;
+            --secondary-color: #2c3e50;
+            --light-color: #ecf0f1;
+            --dark-color: #34495e;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1, h2, h3, h4 {
+            color: var(--secondary-color);
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        
+        h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+        
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+        }
+        
+        blockquote {
+            background-color: var(--light-color);
+            border-left: 4px solid var(--primary-color);
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        
+        img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        
+        .note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .warning {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .tip {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .toc {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .toc ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        
+        .toc a {
+            text-decoration: none;
+            color: var(--secondary-color);
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>RHCSA9 Lab Deployer User Manual</h1>
+    
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        <ul>
+            <li><a href="#introduction">1. Introduction</a></li>
+            <li><a href="#setup">2. Initial Setup</a>
+                <ul>
+                    <li><a href="#prerequisites">2.1 Prerequisites</a></li>
+                    <li><a href="#api-token">2.2 Creating a Proxmox API Token</a></li>
+                </ul>
+            </li>
+            <li><a href="#using">3. Using the Lab Deployer</a>
+                <ul>
+                    <li><a href="#connecting">3.1 Connecting to Proxmox</a></li>
+                    <li><a href="#configuration">3.2 Configuring the Lab</a></li>
+                    <li><a href="#deployment">3.3 Deploying the Lab</a></li>
+                    <li><a href="#monitoring">3.4 Monitoring Deployment Progress</a></li>
+                </ul>
+            </li>
+            <li><a href="#vm-management">4. VM Management</a>
+                <ul>
+                    <li><a href="#console">4.1 Accessing the Console</a></li>
+                    <li><a href="#control">4.2 Starting and Stopping VMs</a></li>
+                </ul>
+            </li>
+            <li><a href="#lab-details">5. Lab Environment Details</a>
+                <ul>
+                    <li><a href="#base-lab">5.1 Base Lab Environment</a></li>
+                    <li><a href="#extended-lab">5.2 Extended Lab Environment</a></li>
+                    <li><a href="#networking">5.3 Network Configuration</a></li>
+                </ul>
+            </li>
+            <li><a href="#troubleshooting">6. Troubleshooting</a>
+                <ul>
+                    <li><a href="#connection-issues">6.1 Connection Issues</a></li>
+                    <li><a href="#deployment-issues">6.2 Deployment Issues</a></li>
+                    <li><a href="#vm-issues">6.3 VM Issues</a></li>
+                </ul>
+            </li>
+            <li><a href="#appendix">7. Appendix</a>
+                <ul>
+                    <li><a href="#api-permissions">7.1 Required API Permissions</a></li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+    
+    <h2 id="introduction">1. Introduction</h2>
+    <p>The RHCSA9 Lab Deployer is a web application that simplifies the process of creating and managing Red Hat Certified System Administrator (RHCSA) exam preparation lab environments in Proxmox Virtual Environment.</p>
+    <p>This tool automates the deployment of virtual machines configured for RHCSA9 exam preparation, allowing you to focus on learning and practicing for the exam rather than setting up the infrastructure.</p>
+    
+    <div class="tip">
+        <strong>Tip:</strong> This tool is based on the scripts from <a href="https://github.com/aggressiveHiker/rhcsa9" target="_blank">https://github.com/aggressiveHiker/rhcsa9</a> but provides a user-friendly web interface for simplified deployment.
+    </div>
+    
+    <h2 id="setup">2. Initial Setup</h2>
+    
+    <h3 id="prerequisites">2.1 Prerequisites</h3>
+    <p>Before using the RHCSA9 Lab Deployer, ensure you have the following:</p>
+    <ul>
+        <li>A running Proxmox VE 7.0 or higher installation</li>
+        <li>Administrative access to create API tokens in Proxmox</li>
+        <li>RHEL9 or CentOS Stream 9 ISO uploaded to your Proxmox storage</li>
+        <li>Sufficient resources (CPU, RAM, storage) for the lab VMs</li>
+    </ul>
+    
+    <h3 id="api-token">2.2 Creating a Proxmox API Token</h3>
+    <p>For security reasons, the Lab Deployer uses API tokens instead of direct username/password authentication. Follow these steps to create an API token:</p>
+    
+    <ol>
+        <li>Log in to your Proxmox web interface as an administrator</li>
+        <li>Navigate to <code>Datacenter → Permissions → API Tokens</code></li>
+        <li>Click the <code>Add</code> button</li>
+        <li>Select a user (preferably a dedicated user for the deployer)</li>
+        <li>Enter a token ID (e.g., <code>rhcsa-deployer</code>)</li>
+        <li>Decide whether to enable <code>Privilege Separation</code> (recommended)</li>
+        <li>Click <code>Create</code></li>
+        <li><strong>Important:</strong> Copy and save both the Token ID and Secret. The secret is only displayed once!</li>
+    </ol>
+    
+    <div class="warning">
+        <strong>Warning:</strong> The token secret is only displayed once when created. If you lose it, you'll need to create a new token.
+    </div>
+    
+    <h4>Required Permissions</h4>
+    <p>Ensure the user associated with the token has the following permissions:</p>
+    <ul>
+        <li>VM.Allocate</li>
+        <li>VM.Config.*</li>
+        <li>Datastore.AllocateSpace</li>
+        <li>Datastore.Audit</li>
+    </ul>
+    
+    <h2 id="using">3. Using the Lab Deployer</h2>
+    
+    <h3 id="connecting">3.1 Connecting to Proxmox</h3>
+    <p>To start using the Lab Deployer, you need to establish a connection to your Proxmox server:</p>
+    
+    <ol>
+        <li>Open the Lab Deployer web interface</li>
+        <li>In the <strong>Proxmox API Connection</strong> section, enter:
+            <ul>
+                <li><strong>Proxmox Host:</strong> The URL of your Proxmox server (e.g., <code>https://proxmox.example.com:8006</code>)</li>
+                <li><strong>API Token ID:</strong> The token ID in the format <code>user@pam!token_name</code></li>
+                <li><strong>API Token Secret:</strong> The secret value generated when creating the token</li>
+            </ul>
+        </li>
+        <li>Click the <strong>Connect</strong> button</li>
+    </ol>
+    
+    <p>If the connection is successful, the available Proxmox nodes and storage pools will be populated in the form, and the "Deploy Lab" button will be enabled.</p>
+    
+    <h3 id="configuration">3.2 Configuring the Lab</h3>
+    <p>After connecting to Proxmox, configure your lab deployment:</p>
+    
+    <ol>
+        <li>Select a <strong>Lab Template</strong>:
+            <ul>
+                <li><strong>RHCSA9 Base Lab:</strong> Server + Client setup (recommended for beginners)</li>
+                <li><strong>RHCSA9 Extended Lab:</strong> Server + 2 Clients (for advanced scenarios)</li>
+            </ul>
+        </li>
+        <li>Select a <strong>Proxmox Node</strong> where the VMs will be created</li>
+        <li>Choose a <strong>Storage Pool</strong> for VM disks</li>
+        <li>Select a <strong>Network Bridge</strong> (default is usually <code>vmbr0</code>)</li>
+        <li>Enter a <strong>VM Name Prefix</strong> (default is <code>rhcsa9-</code>)</li>
+        <li>Specify the <strong>ISO Location</strong> (the path to your RHEL/CentOS ISO in Proxmox)</li>
+    </ol>
+    
+    <div class="note">
+        <strong>Note:</strong> The ISO location should be in the format <code>storage:iso/filename.iso</code> (e.g., <code>local:iso/rhel-9.0-x86_64-dvd.iso</code>).
+    </div>
+    
+    <h3 id="deployment">3.3 Deploying the Lab</h3>
+    <p>Once you've configured your lab environment:</p>
+    
+    <ol>
+        <li>Click the <strong>Deploy Lab</strong> button</li>
+        <li>The deployment process will begin automatically</li>
+        <li>This process may take several minutes depending on your Proxmox server performance</li>
+    </ol>
+    
+    <div class="tip">
+        <strong>Tip:</strong> The deployment process involves several steps including VM creation, network configuration, and basic system setup. Be patient during this process.
+    </div>
+    
+    <h3 id="monitoring">3.4 Monitoring Deployment Progress</h3>
+    <p>During deployment, you can monitor the progress:</p>
+    
+    <ul>
+        <li>The <strong>Progress Bar</strong> shows the overall completion percentage</li>
+        <li>The <strong>Current Step</strong> text indicates what's currently being worked on</li>
+        <li>The <strong>Deployment Log</strong> provides detailed information about each step</li>
+    </ul>
+    
+    <p>Once the deployment is complete, the "Lab Virtual Machines" section will appear, showing all created VMs.</p>
+    
+    <h2 id="vm-management">4. VM Management</h2>
+    
+    <h3 id="console">4.1 Accessing the Console</h3>
+    <p>To access the console of a deployed VM:</p>
+    
+    <ol>
+        <li>In the "Lab Virtual Machines" section, find the VM you want to access</li>
+        <li>Click the <strong>Console</strong> button for that VM</li>
+        <li>A new window or tab will open with the noVNC console for the VM</li>
+        <li>Use this console to interact with the VM as if you were physically at the machine</li>
+    </ol>
+    
+    <div class="note">
+        <strong>Note:</strong> The console uses noVNC technology, which runs directly in your browser without requiring additional plugins or software.
+    </div>
+    
+    <h3 id="control">4.2 Starting and Stopping VMs</h3>
+    <p>For each VM in the lab, you can control its power state:</p>
+    
+    <ul>
+        <li><strong>Start:</strong> Powers on a stopped VM</li>
+        <li><strong>Stop:</strong> Forces an immediate power off (equivalent to unplugging a physical machine)</li>
+    </ul>
+    
+    <div class="warning">
+        <strong>Warning:</strong> Using the Stop button is like pulling the power cord on a physical machine. It's recommended to shut down the OS properly from within the VM console when possible to avoid data loss.
+    </div>
+    
+    <h2 id="lab-details">5. Lab Environment Details</h2>
+    
+    <h3 id="base-lab">5.1 Base Lab Environment</h3>
+    <p>The Base Lab includes:</p>
+    
+    <table>
+        <tr>
+            <th>VM Name</th>
+            <th>Role</th>
+            <th>CPU</th>
+            <th>RAM</th>
+            <th>Disk</th>
+        </tr>
+        <tr>
+            <td>rhcsa9-server</td>
+            <td>Primary server</td>
+            <td>2 cores</td>
+            <td>2 GB</td>
+            <td>20 GB</td>
+        </tr>
+        <tr>
+            <td>rhcsa9-client</td>
+            <td>Client machine</td>
+            <td>1 core</td>
+            <td>1 GB</td>
+            <td>10 GB</td>
+        </tr>
+    </table>
+    
+    <p>This setup is sufficient for most RHCSA9 exam preparation tasks.</p>
+    
+    <h3 id="extended-lab">5.2 Extended Lab Environment</h3>
+    <p>The Extended Lab includes:</p>
+    
+    <table>
+        <tr>
+            <th>VM Name</th>
+            <th>Role</th>
+            <th>CPU</th>
+            <th>RAM</th>
+            <th>Disk</th>
+        </tr>
+        <tr>
+            <td>rhcsa9-server</td>
+            <td>Primary server</td>
+            <td>2 cores</td>
+            <td>2 GB</td>
+            <td>20 GB</td>
+        </tr>
+        <tr>
+            <td>rhcsa9-client1</td>
+            <td>First client machine</td>
+            <td>1 core</td>
+            <td>1 GB</td>
+            <td>10 GB</td>
+        </tr>
+        <tr>
+            <td>rhcsa9-client2</td>
+            <td>Second client machine</td>
+            <td>1 core</td>
+            <td>1 GB</td>
+            <td>10 GB</td>
+        </tr>
+    </table>
+    
+    <p>The extended lab allows for more complex scenarios involving multiple client machines.</p>
+    
+    <h3 id="networking">5.3 Network Configuration</h3>
+    <p>By default, all VMs are configured with:</p>
+    
+    <ul>
+        <li>Network adapter connected to the specified bridge (default: vmbr0)</li>
+        <li>DHCP enabled for initial network configuration</li>
+        <li>Hostname set to match the VM name</li>
+    </ul>
+    
+    <div class="tip">
+        <strong>Tip:</strong> For RHCSA exam preparation, you may want to practice configuring static IP addresses and other network settings manually within the VMs.
+    </div>
+    
+    <h2 id="troubleshooting">6. Troubleshooting</h2>
+    
+    <h3 id="connection-issues">6.1 Connection Issues</h3>
+    
+    <table>
+        <tr>
+            <th>Problem</th>
+            <th>Possible Solution</th>
+        </tr>
+        <tr>
+            <td>Cannot connect to Proxmox API</td>
+            <td>
+                <ul>
+                    <li>Verify the Proxmox host URL is correct (including https:// and port)</li>
+                    <li>Check that the API token ID and secret are entered correctly</li>
+                    <li>Ensure the token has not expired or been revoked</li>
+                    <li>Verify network connectivity to the Proxmox server</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td>Permission denied errors</td>
+            <td>
+                <ul>
+                    <li>Check that the user associated with the API token has the necessary permissions</li>
+                    <li>Verify that Privilege Separation is correctly configured</li>
+                </ul>
+            </td>
+        </tr>
+    </table>
+    
+    <h3 id="deployment-issues">6.2 Deployment Issues</h3>
+    
+    <table>
+        <tr>
+            <th>Problem</th>
+            <th>Possible Solution</th>
+        </tr>
+        <tr>
+            <td>Deployment fails during VM creation</td>
+            <td>
+                <ul>
+                    <li>Check available storage space in the selected storage pool</li>
+                    <li>Verify that the ISO file exists at the specified location</li>
+                    <li>Check the deployment logs for specific error messages</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td>Resource allocation failures</td>
+            <td>
+                <ul>
+                    <li>Ensure your Proxmox node has sufficient CPU, RAM, and storage resources</li>
+                    <li>Check for any resource reservation or limitation settings</li>
+                </ul>
+            </td>
+        </tr>
+    </table>
+    
+    <h3 id="vm-issues">6.3 VM Issues</h3>
+    
+    <table>
+        <tr>
+            <th>Problem</th>
+            <th>Possible Solution</th>
+        </tr>
+        <tr>
+            <td>VM won't start</td>
+            <td>
+                <ul>
+                    <li>Check Proxmox logs for any hardware virtualization issues</li>
+                    <li>Verify that the VM configuration is valid</li>
+                    <li>Ensure there are sufficient resources available on the node</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td>Cannot access VM console</td>
+            <td>
+                <ul>
+                    <li>Check that your browser supports noVNC (modern browsers should work)</li>
+                    <li>Verify that port 8006 is accessible from your network</li>
+                    <li>Try clearing browser cache or using an incognito/private window</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td>Network connectivity issues between VMs</td>
+            <td>
+                <ul>
+                    <li>Verify that the Proxmox bridge is correctly configured</li>
+                    <li>Check VM network configurations within the guest OS</li>
+                    <li>Ensure firewall rules are not blocking traffic</li>
+                </ul>
+            </td>
+        </tr>
+    </table>
+    
+    <h2 id="appendix">7. Appendix</h2>
+    
+    <h3 id="api-permissions">7.1 Required API Permissions</h3>
+    <p>The following permissions are required for the API token:</p>
+    
+    <pre>
+Datastore.AllocateSpace
+Datastore.Audit
+VM.Allocate
+VM.Config.Disk
+VM.Config.CPU
+VM.Config.Memory
+VM.Config.Network
+VM.Config.Options
+VM.Monitor
+VM.PowerMgmt
+    </pre>
+    
+    <div class="note">
+        <strong>Note:</strong> For simplicity, you can assign the PVEVMAdmin role to the user associated with the token, which includes all these permissions.
+    </div>
+    
+    <hr>
+    
+    <p><em>This manual was last updated on February 26, 2025.</em></p>
+    
+    <div class="tip">
+        <p><strong>Need Help?</strong> For support or to report issues, please visit the <a href="https://github.com/yourusername/rhcsa9-lab-deployer/issues" target="_blank">GitHub repository</a>.</p>
+    </div>
+</body>
+</html>

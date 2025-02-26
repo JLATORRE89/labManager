@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RHCSA9 Lab Deployer</title>
+    <style>
+        :root {
+            --primary-color: #e74c3c;
+            --secondary-color: #2c3e50;
+            --light-color: #ecf0f1;
+            --dark-color: #34495e;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --danger-color: #c0392b;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark-color);
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .card {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-title {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        .vm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .vm-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        .vm-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .vm-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .status-running {
+            background-color: var(--success-color);
+        }
+        .status-stopped {
+            background-color: var(--danger-color);
+        }
+        .vm-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .vm-actions button {
+            padding: 5px 8px;
+            font-size: 12px;
+        }
+        .log-container {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 20px;
+        }
+        .progress-bar {
+            height: 8px;
+            background-color: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: var(--success-color);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>RHCSA9 Lab Deployer for Proxmox</h1>
+        </header>
+
+        <div class="card" id="connection-section">
+            <h3 class="card-title">Proxmox API Connection</h3>
+            <form id="proxmoxForm">
+                <div class="form-group">
+                    <label for="proxmox-host">Proxmox Host</label>
+                    <input type="text" id="proxmox-host" placeholder="https://proxmox.example.com:8006">
+                </div>
+                <div class="form-group">
+                    <label for="proxmox-token-id">API Token ID</label>
+                    <input type="text" id="proxmox-token-id" placeholder="user@pam!token_name">
+                </div>
+                <div class="form-group">
+                    <label for="proxmox-token-secret">API Token Secret</label>
+                    <input type="password" id="proxmox-token-secret" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                </div>
+                <button type="button" id="connect-btn" class="btn btn-primary">Connect</button>
+                <button type="button" id="load-config-btn" class="btn btn-secondary">Load From Config</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3 class="card-title">RHCSA9 Lab Configuration</h3>
+            <form id="deployForm">
+                <div class="form-group">
+                    <label for="lab-template">Lab Template</label>
+                    <select id="lab-template">
+                        <option value="rhcsa9-base">RHCSA9 Base Lab (Server + Client)</option>
+                        <option value="rhcsa9-extended">RHCSA9 Extended Lab (Server + 2 Clients)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="proxmox-node">Proxmox Node</label>
+                    <select id="proxmox-node" disabled>
+                        <option value="">Connect to Proxmox first</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="storage-pool">Storage Pool</label>
+                    <select id="storage-pool" disabled>
+                        <option value="">Connect to Proxmox first</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="network-bridge">Network Bridge</label>
+                    <select id="network-bridge">
+                        <option value="vmbr0">vmbr0 (Default)</option>
+                        <option value="vmbr1">vmbr1</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="vm-prefix">VM Name Prefix</label>
+                    <input type="text" id="vm-prefix" value="rhcsa9-">
+                </div>
+                <div class="form-group">
+                    <label for="iso-location">RHEL/CentOS ISO Location</label>
+                    <input type="text" id="iso-location" placeholder="local:iso/rhel9.iso">
+                </div>
+                <button type="button" id="deploy-btn" class="btn btn-primary" disabled>Deploy Lab</button>
+            </form>
+        </div>
+
+        <div id="deployment-progress" style="display: none;">
+            <div class="card">
+                <h3 class="card-title">Deployment Progress</h3>
+                <p id="current-step">Preparing deployment...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <p><span id="progress-percentage">0%</span> complete</p>
+            </div>
+            <div class="log-container" id="deployment-log">
+                <!-- Logs will appear here -->
+            </div>
+        </div>
+
+        <div id="lab-vms" style="display: none;">
+            <div class="card">
+                <h3 class="card-title">Lab Virtual Machines</h3>
+                <p>Click "Console" to access remote console for any VM.</p>
+                <div class="vm-grid" id="vm-grid">
+                    <!-- VMs will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load main JavaScript file -->
+    <script src="main.js"></script>
+</body>
+</html>

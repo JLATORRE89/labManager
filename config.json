@@ -1,0 +1,14 @@
+{
+    "proxmoxHost": "https://your-proxmox-server:8006",
+    "tokenId": "user@pam!token_name",
+    "tokenSecret": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "defaultNode": "pve",
+    "defaultStorage": "local-lvm",
+    "defaultBridge": "vmbr0",
+    "defaultPrefix": "rhcsa9-",
+    "defaultIsoLocation": "local:iso/rhel9.iso",
+    
+    "_comment": "Additional settings for automatic operation",
+    "autoConnect": true,
+    "hideConnectionForm": false
+  }
