@@ -141,24 +141,43 @@ parse_args() {
         exit 1
     fi
 
+    # Basic IP address validation
+    if ! [[ "$VM_IP" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        echo -e "${RED}Error: Invalid IP address format: $VM_IP${NC}"
+        usage
+        exit 1
+    fi
+
     if [[ -z "$VM_PASSWORD" && -z "$SSH_KEY" ]]; then
         echo -e "${RED}Error: Either --vm-password or --ssh-key is required${NC}"
         usage
+        exit 1
+    fi
+
+    # Validate student name contains only safe characters
+    if [[ "$STUDENT_NAME" =~ [^a-zA-Z0-9_-] ]]; then
+        echo -e "${RED}Error: Student name can only contain letters, numbers, underscores, and hyphens${NC}"
         exit 1
     fi
 }
 
 # Setup SSH connection parameters
 setup_ssh() {
+    # Validate VM_PORT is numeric
+    if ! [[ "$VM_PORT" =~ ^[0-9]+$ ]] || [ "$VM_PORT" -lt 1 ] || [ "$VM_PORT" -gt 65535 ]; then
+        echo -e "${RED}Error: Invalid port number: $VM_PORT${NC}"
+        exit 1
+    fi
+
     SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=10 -p $VM_PORT"
-    
+
     if [[ -n "$SSH_KEY" ]]; then
         if [[ ! -f "$SSH_KEY" ]]; then
             echo -e "${RED}Error: SSH key file not found: $SSH_KEY${NC}"
             exit 1
         fi
-        SSH_OPTS="$SSH_OPTS -i $SSH_KEY"
-        SSH_CMD="ssh $SSH_OPTS $VM_USER@$VM_IP"
+        SSH_OPTS="$SSH_OPTS -i \"$SSH_KEY\""
+        SSH_CMD="ssh $SSH_OPTS \"$VM_USER\"@\"$VM_IP\""
         SCP_CMD="scp $SSH_OPTS"
     else
         # Using sshpass for password authentication
@@ -168,23 +187,27 @@ setup_ssh() {
             echo "             sudo yum install sshpass (RHEL/CentOS)"
             exit 1
         fi
-        SSH_CMD="sshpass -p '$VM_PASSWORD' ssh $SSH_OPTS $VM_USER@$VM_IP"
-        SCP_CMD="sshpass -p '$VM_PASSWORD' scp $SSH_OPTS"
+        # Use SSHPASS environment variable for better security
+        export SSHPASS="$VM_PASSWORD"
+        SSH_CMD="sshpass -e ssh $SSH_OPTS \"$VM_USER\"@\"$VM_IP\""
+        SCP_CMD="sshpass -e scp $SSH_OPTS"
     fi
 }
 
 # Test VM connectivity
 test_connectivity() {
     echo -e "${BLUE}Testing VM connectivity...${NC}"
-    
+
     if eval "$SSH_CMD 'echo \"Connection successful\"'" >/dev/null 2>&1; then
         echo -e "${GREEN}✓ VM connection established${NC}"
-        
+
         # Get VM info
-        OS_INFO=$(eval "$SSH_CMD 'cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d= -f2 | tr -d \"'\"' || echo 'Unknown OS'")
+        OS_INFO=$(eval "$SSH_CMD 'cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d= -f2 | tr -d \"'\"' 2>/dev/null" || echo 'Unknown OS')
         echo -e "${CYAN}VM OS: $OS_INFO${NC}"
     else
         echo -e "${RED}✗ Failed to connect to VM${NC}"
+        # Clear password from environment on failure
+        unset SSHPASS
         exit 1
     fi
 }
@@ -194,23 +217,35 @@ run_remote_script() {
     local script_path="$1"
     local script_name=$(basename "$script_path")
     local phase="$2"
-    
+
     if [[ ! -f "$script_path" ]]; then
         echo -e "${RED}✗ Script not found: $script_path${NC}"
         return 1
     fi
-    
+
+    # Validate script name to prevent path traversal
+    if [[ "$script_name" =~ [^a-zA-Z0-9._-] ]]; then
+        echo -e "${RED}✗ Invalid script name: $script_name${NC}"
+        return 1
+    fi
+
     echo -e "${YELLOW}Running $script_name...${NC}"
-    
-    # Copy script to VM
-    eval "$SCP_CMD '$script_path' '$VM_USER@$VM_IP:/tmp/$script_name'" || {
+
+    # Copy script to VM with proper quoting
+    eval "$SCP_CMD \"$script_path\" \"$VM_USER\"@\"$VM_IP\":/tmp/\"$script_name\"" || {
         echo -e "${RED}✗ Failed to copy $script_name to VM${NC}"
         return 1
     }
-    
-    # Make script executable and run
-    local remote_cmd="chmod +x /tmp/$script_name && cd /tmp && timeout $TIMEOUT sudo /tmp/$script_name"
-    
+
+    # Validate timeout is numeric
+    if ! [[ "$TIMEOUT" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}✗ Invalid timeout value: $TIMEOUT${NC}"
+        return 1
+    fi
+
+    # Make script executable and run with proper quoting
+    local remote_cmd="chmod +x /tmp/\"$script_name\" && cd /tmp && timeout \"$TIMEOUT\" sudo /tmp/\"$script_name\""
+
     if [[ "$VERBOSE" == true ]]; then
         eval "$SSH_CMD '$remote_cmd'" || {
             echo -e "${RED}✗ Failed to execute $script_name${NC}"
@@ -222,7 +257,7 @@ run_remote_script() {
             return 1
         }
     fi
-    
+
     echo -e "${GREEN}✓ $script_name completed${NC}"
     return 0
 }
@@ -434,6 +469,8 @@ cleanup() {
     echo -e "\n${YELLOW}Cleaning up...${NC}"
     # Remove any temporary files
     rm -f /tmp/vm_labresults_*.log
+    # Clear password from environment
+    unset SSHPASS
     exit 1
 }
 

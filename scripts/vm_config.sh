@@ -26,7 +26,13 @@ create_config() {
         echo "Usage: $0 create <config_name>"
         exit 1
     fi
-    
+
+    # Validate config name to prevent path traversal
+    if [[ "$config_name" =~ [^a-zA-Z0-9._-] ]]; then
+        echo -e "${RED}Error: Config name can only contain letters, numbers, dots, underscores, and hyphens${NC}"
+        exit 1
+    fi
+
     local config_file="$CONFIG_DIR/${config_name}.conf"
     
     if [[ -f "$config_file" ]]; then
@@ -143,50 +149,70 @@ run_with_config() {
         list_configs
         exit 1
     fi
-    
+
+    # Validate config name to prevent path traversal
+    if [[ "$config_name" =~ [^a-zA-Z0-9._-] ]]; then
+        echo -e "${RED}Error: Invalid config name: $config_name${NC}"
+        exit 1
+    fi
+
     local config_file="$CONFIG_DIR/${config_name}.conf"
-    
+
     if [[ ! -f "$config_file" ]]; then
         echo -e "${RED}Error: Configuration not found: $config_name${NC}"
         list_configs
         exit 1
     fi
-    
+
+    # Verify config file is within CONFIG_DIR to prevent directory traversal
+    local real_config=$(realpath "$config_file" 2>/dev/null)
+    local real_config_dir=$(realpath "$CONFIG_DIR" 2>/dev/null)
+    if [[ ! "$real_config" == "$real_config_dir"/* ]]; then
+        echo -e "${RED}Error: Invalid configuration path${NC}"
+        exit 1
+    fi
+
     echo -e "${BLUE}Loading configuration: $config_name${NC}"
-    
+
     # Source the configuration
     source "$config_file"
     
-    # Build orchestrator command
-    local cmd="$ORCHESTRATOR --vm-ip \"$VM_IP\" --vm-user \"$VM_USER\""
-    
+    # Validate required fields from config
+    if [[ -z "$VM_IP" ]]; then
+        echo -e "${RED}Error: VM_IP not set in configuration${NC}"
+        exit 1
+    fi
+
+    # Build orchestrator command array for safer execution
+    local -a cmd_args=("$ORCHESTRATOR" "--vm-ip" "$VM_IP" "--vm-user" "${VM_USER:-root}")
+
     if [[ -n "$VM_PORT" ]]; then
-        cmd="$cmd --vm-port \"$VM_PORT\""
+        cmd_args+=("--vm-port" "$VM_PORT")
     fi
-    
+
     if [[ -n "$SSH_KEY" ]]; then
-        cmd="$cmd --ssh-key \"$SSH_KEY\""
+        cmd_args+=("--ssh-key" "$SSH_KEY")
     elif [[ -n "$VM_PASSWORD" ]]; then
-        cmd="$cmd --vm-password \"$VM_PASSWORD\""
+        cmd_args+=("--vm-password" "$VM_PASSWORD")
     fi
-    
+
     if [[ -n "$STUDENT_NAME" ]]; then
-        cmd="$cmd --student-name \"$STUDENT_NAME\""
+        cmd_args+=("--student-name" "$STUDENT_NAME")
     fi
-    
+
     if [[ -n "$TIMEOUT" ]]; then
-        cmd="$cmd --timeout \"$TIMEOUT\""
+        cmd_args+=("--timeout" "$TIMEOUT")
     fi
-    
+
     # Add any additional arguments passed to this script
     shift  # Remove config_name
-    cmd="$cmd $*"
-    
-    echo -e "${CYAN}Executing: $cmd${NC}"
+    cmd_args+=("$@")
+
+    echo -e "${CYAN}Executing orchestrator with configuration: $config_name${NC}"
     echo ""
-    
-    # Execute the orchestrator
-    eval "$cmd"
+
+    # Execute the orchestrator with proper argument handling
+    "${cmd_args[@]}"
 }
 
 # Batch processing function
@@ -197,40 +223,50 @@ run_batch() {
         echo "Usage: $0 batch <batch_file>"
         exit 1
     fi
-    
+
     if [[ ! -f "$batch_file" ]]; then
         echo -e "${RED}Error: Batch file not found: $batch_file${NC}"
         exit 1
     fi
-    
+
     echo -e "${BLUE}Running batch processing from: $batch_file${NC}"
-    
+
     local line_num=0
     local success_count=0
     local total_count=0
-    
+
     while IFS= read -r line; do
         ((line_num++))
-        
+
         # Skip empty lines and comments
         if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
             continue
         fi
-        
+
         ((total_count++))
-        
+
         echo -e "\n${CYAN}=== Batch Job $total_count (Line $line_num) ===${NC}"
         echo -e "${YELLOW}Command: $line${NC}"
-        
-        # Execute the line as a command
-        if eval "$0 $line"; then
+
+        # Parse the line into command and arguments
+        # Only allow 'run' command in batch files for security
+        read -r cmd config_name rest <<< "$line"
+
+        if [[ "$cmd" != "run" ]]; then
+            echo -e "${RED}✗ Batch files can only contain 'run' commands${NC}"
+            echo -e "${YELLOW}Skipping line $line_num${NC}"
+            continue
+        fi
+
+        # Execute using the run_with_config function directly
+        if run_with_config "$config_name" $rest; then
             ((success_count++))
             echo -e "${GREEN}✓ Batch job $total_count completed successfully${NC}"
         else
             echo -e "${RED}✗ Batch job $total_count failed${NC}"
         fi
     done < "$batch_file"
-    
+
     echo -e "\n${BLUE}=== Batch Processing Complete ===${NC}"
     echo -e "${CYAN}Results: $success_count/$total_count jobs succeeded${NC}"
 }

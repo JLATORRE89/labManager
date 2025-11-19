@@ -3,12 +3,18 @@
 # Script to verify user file collection - checks if find command was executed properly
 # Usage: ./usercheck.sh
 
-set -e  # Exit on any error
+set -euo pipefail  # Exit on error, undefined variables, and pipe failures
 
 USERNAME="sally"
 HOME_DIR="/home/$USERNAME"
 COLLECTION_DIR="/root/sally"
 LOGFILE="../../labresults.log"
+
+# Validate username contains only safe characters
+if [[ ! "$USERNAME" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+    echo "Error: Invalid username format: $USERNAME"
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -23,7 +29,12 @@ echo ""
 
 # Function to log results
 log_result() {
-    echo "$(date): $1" >> "$LOGFILE"
+    local message="$1"
+    # Create log directory if it doesn't exist
+    local log_dir=$(dirname "$LOGFILE")
+    mkdir -p "$log_dir" 2>/dev/null || true
+    # Append to log file with error handling
+    echo "$(date): $message" >> "$LOGFILE" 2>/dev/null || echo "Warning: Could not write to log file"
 }
 
 # Function to check if user exists

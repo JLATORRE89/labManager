@@ -3,13 +3,19 @@
 # Script to verify NFS usershare configuration
 # Usage: ./check_nfs_share.sh
 
-set -e  # Exit on any error
+set -euo pipefail  # Exit on error, undefined variables, and pipe failures
 
 NFS_SHARE_NAME="usershare"
 MOUNT_POINT="/home/shares"
 USER_NAME="eric"
 USER_HOME="$MOUNT_POINT/$USER_NAME"
 LOGFILE="../../labresults.log"
+
+# Validate username contains only safe characters
+if [[ ! "$USER_NAME" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+    echo "Error: Invalid username format: $USER_NAME"
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -24,7 +30,12 @@ echo ""
 
 # Function to log results
 log_result() {
-    echo "$(date): $1" >> "$LOGFILE"
+    local message="$1"
+    # Create log directory if it doesn't exist
+    local log_dir=$(dirname "$LOGFILE")
+    mkdir -p "$log_dir" 2>/dev/null || true
+    # Append to log file with error handling
+    echo "$(date): $message" >> "$LOGFILE" 2>/dev/null || echo "Warning: Could not write to log file"
 }
 
 # Function to check /etc/fstab for usershare entry

@@ -50,40 +50,65 @@ function loadConfigFromFile() {
     fetch('config.json')
         .then(response => {
             if (!response.ok) {
-                throw new Error('Config file not found or inaccessible');
+                throw new Error('Config file not found or inaccessible (HTTP ' + response.status + ')');
             }
             return response.json();
         })
         .then(config => {
+            // Validate config object
+            if (typeof config !== 'object' || config === null) {
+                throw new Error('Invalid configuration format');
+            }
+
             // Populate form fields with config values
-            document.getElementById('proxmox-host').value = config.proxmoxHost || '';
-            document.getElementById('proxmox-token-id').value = config.tokenId || '';
-            document.getElementById('proxmox-token-secret').value = config.tokenSecret || '';
-            
+            const hostField = document.getElementById('proxmox-host');
+            const tokenIdField = document.getElementById('proxmox-token-id');
+            const tokenSecretField = document.getElementById('proxmox-token-secret');
+
+            if (hostField) hostField.value = config.proxmoxHost || '';
+            if (tokenIdField) tokenIdField.value = config.tokenId || '';
+            if (tokenSecretField) tokenSecretField.value = config.tokenSecret || '';
+
             // Load default values for deployment form if available
-            if (config.defaultNode) document.getElementById('proxmox-node').value = config.defaultNode;
-            if (config.defaultStorage) document.getElementById('storage-pool').value = config.defaultStorage;
-            if (config.defaultBridge) document.getElementById('network-bridge').value = config.defaultBridge;
-            if (config.defaultPrefix) document.getElementById('vm-prefix').value = config.defaultPrefix;
-            if (config.defaultIsoLocation) document.getElementById('iso-location').value = config.defaultIsoLocation;
-            
+            const nodeField = document.getElementById('proxmox-node');
+            const storageField = document.getElementById('storage-pool');
+            const bridgeField = document.getElementById('network-bridge');
+            const prefixField = document.getElementById('vm-prefix');
+            const isoField = document.getElementById('iso-location');
+
+            if (config.defaultNode && nodeField) nodeField.value = config.defaultNode;
+            if (config.defaultStorage && storageField) storageField.value = config.defaultStorage;
+            if (config.defaultBridge && bridgeField) bridgeField.value = config.defaultBridge;
+            if (config.defaultPrefix && prefixField) prefixField.value = config.defaultPrefix;
+            if (config.defaultIsoLocation && isoField) isoField.value = config.defaultIsoLocation;
+
             addLogMessage('Configuration loaded from config.json', 'success');
         })
         .catch(error => {
-            addLogMessage('Error loading configuration: ' + error.message, 'error');
-            alert('Failed to load configuration file. Please check the console for details.');
+            const errorMsg = 'Error loading configuration: ' + (error.message || 'Unknown error');
+            addLogMessage(errorMsg, 'error');
             console.error('Config loading error:', error);
         });
 }
 
 // Connect to Proxmox
 function connectToProxmox() {
-    const host = document.getElementById('proxmox-host').value;
-    const tokenId = document.getElementById('proxmox-token-id').value;
-    const tokenSecret = document.getElementById('proxmox-token-secret').value;
-    
+    const host = document.getElementById('proxmox-host').value.trim();
+    const tokenId = document.getElementById('proxmox-token-id').value.trim();
+    const tokenSecret = document.getElementById('proxmox-token-secret').value.trim();
+
     if (!host || !tokenId || !tokenSecret) {
+        addLogMessage('Please fill in all connection fields', 'error');
         alert('Please fill in all connection fields');
+        return;
+    }
+
+    // Basic URL validation for host
+    try {
+        new URL(host);
+    } catch (e) {
+        addLogMessage('Invalid Proxmox host URL format', 'error');
+        alert('Please enter a valid Proxmox host URL (e.g., https://proxmox.example.com:8006)');
         return;
     }
     
@@ -120,14 +145,22 @@ function connectToProxmox() {
 // Start deployment
 function startDeployment() {
     const template = document.getElementById('lab-template').value;
-    const node = proxmoxNode.value;
-    const storage = storagePool.value;
-    const bridge = document.getElementById('network-bridge').value;
-    const prefix = document.getElementById('vm-prefix').value;
-    const iso = document.getElementById('iso-location').value;
-    
+    const node = proxmoxNode.value.trim();
+    const storage = storagePool.value.trim();
+    const bridge = document.getElementById('network-bridge').value.trim();
+    const prefix = document.getElementById('vm-prefix').value.trim();
+    const iso = document.getElementById('iso-location').value.trim();
+
     if (!node || !storage || !bridge || !prefix || !iso) {
+        addLogMessage('Please fill in all deployment fields', 'error');
         alert('Please fill in all deployment fields');
+        return;
+    }
+
+    // Validate prefix contains only safe characters
+    if (!/^[a-zA-Z0-9-_]+$/.test(prefix)) {
+        addLogMessage('VM prefix can only contain letters, numbers, hyphens, and underscores', 'error');
+        alert('VM prefix can only contain letters, numbers, hyphens, and underscores');
         return;
     }
     
@@ -247,8 +280,15 @@ function createVMCard(id, name, status) {
 // Open VM console
 function openConsole(id, name) {
     const host = document.getElementById('proxmox-host').value;
-    const consoleUrl = `${host}/console/?vmid=${id}&node=pve&console=kvm&novnc=1`;
-    
+
+    // Validate inputs
+    if (!id || !/^[0-9]+$/.test(id)) {
+        addLogMessage('Invalid VM ID', 'error');
+        return;
+    }
+
+    const consoleUrl = `${host}/console/?vmid=${encodeURIComponent(id)}&node=pve&console=kvm&novnc=1`;
+
     // In a real app, this would open the Proxmox console
     // For demo, just show an alert
     addLogMessage(`Opening console for ${name} (ID: ${id})`);
@@ -296,10 +336,13 @@ function stopVM(id, vmCard) {
 // Add log message
 function addLogMessage(message, type = 'info') {
     if (!deploymentLog) return; // Safety check
-    
+
+    // Sanitize message to prevent XSS
+    const sanitizedMessage = String(message).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
     const timestamp = new Date().toTimeString().split(' ')[0];
     const logEntry = document.createElement('div');
-    logEntry.innerHTML = `<span style="color: #95a5a6;">[${timestamp}]</span> <span class="log-${type}">${message}</span>`;
+    logEntry.innerHTML = `<span style="color: #95a5a6;">[${timestamp}]</span> <span class="log-${type}">${sanitizedMessage}</span>`;
     deploymentLog.appendChild(logEntry);
     deploymentLog.scrollTop = deploymentLog.scrollHeight;
 }

@@ -24,8 +24,12 @@ class LabGrader:
         """Parse the labresults.log file and extract all test results"""
         if not self.log_file.exists():
             raise FileNotFoundError(f"Log file {self.log_file} not found")
-            
-        with open(self.log_file, 'r') as f:
+
+        # Check if file is readable
+        if not self.log_file.is_file():
+            raise ValueError(f"{self.log_file} is not a regular file")
+
+        with open(self.log_file, 'r', encoding='utf-8', errors='ignore') as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
@@ -499,39 +503,59 @@ class LabGrader:
 
 def main():
     parser = argparse.ArgumentParser(description='Grade lab results from log file')
-    parser.add_argument('--log-file', default='labresults.log', 
+    parser.add_argument('--log-file', default='labresults.log',
                        help='Path to lab results log file (default: labresults.log)')
     parser.add_argument('--output-format', choices=['text', 'json', 'html'], default='text',
                        help='Output format (default: text)')
     parser.add_argument('--output-file', help='Save report to file instead of stdout')
-    
+
     args = parser.parse_args()
-    
+
     try:
         grader = LabGrader(args.log_file)
         grader.parse_log_file()
-        
+
+        # Check if any results were parsed
+        if not grader.results:
+            print(f"Warning: No valid log entries found in {args.log_file}")
+            print("The log file may be empty or not contain properly formatted entries.")
+            return 1
+
         if args.output_format == 'json':
             report = grader.generate_json_report()
         elif args.output_format == 'html':
             report = grader.generate_html_report()
         else:
             report = grader.generate_text_report()
-        
+
         if args.output_file:
-            with open(args.output_file, 'w') as f:
+            # Validate output file path
+            output_path = Path(args.output_file)
+            if output_path.exists() and not output_path.is_file():
+                print(f"Error: {args.output_file} exists but is not a regular file")
+                return 1
+
+            with open(args.output_file, 'w', encoding='utf-8') as f:
                 f.write(report)
             print(f"Report saved to {args.output_file}")
         else:
             print(report)
-            
+
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        print(f"Error: {e}", file=__import__('sys').stderr)
+        return 1
+    except PermissionError as e:
+        print(f"Error: Permission denied - {e}", file=__import__('sys').stderr)
+        return 1
+    except ValueError as e:
+        print(f"Error: {e}", file=__import__('sys').stderr)
         return 1
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Unexpected error: {e}", file=__import__('sys').stderr)
+        import traceback
+        traceback.print_exc()
         return 1
-    
+
     return 0
 
 if __name__ == "__main__":
