@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  # Redis for Celery task queue
+  redis:
+    image: redis:7-alpine
+    container_name: labmanager-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL database (optional, can use SQLite)
+  postgres:
+    image: postgres:15-alpine
+    container_name: labmanager-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: labmanager
+      POSTGRES_USER: labmanager
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flask API server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: labmanager-api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://labmanager:changeme@postgres:5432/labmanager}
+      - REDIS_URL=redis://redis:6379/0
+      - PROXMOX_HOST=${PROXMOX_HOST}
+      - PROXMOX_USER=${PROXMOX_USER}
+      - PROXMOX_TOKEN_NAME=${PROXMOX_TOKEN_NAME}
+      - PROXMOX_TOKEN_VALUE=${PROXMOX_TOKEN_VALUE}
+      - PROXMOX_VERIFY_SSL=${PROXMOX_VERIFY_SSL:-false}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./completedLabs:/app/completedLabs
+      - ./logs:/app/logs
+      - ./vm_configs:/app/vm_configs
+    command: gunicorn --bind 0.0.0.0:5000 --workers 4 --worker-class gevent --timeout 120 app:app
+
+  # Celery worker for background tasks
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: labmanager-celery
+    restart: unless-stopped
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://labmanager:changeme@postgres:5432/labmanager}
+      - REDIS_URL=redis://redis:6379/0
+      - PROXMOX_HOST=${PROXMOX_HOST}
+      - PROXMOX_USER=${PROXMOX_USER}
+      - PROXMOX_TOKEN_NAME=${PROXMOX_TOKEN_NAME}
+      - PROXMOX_TOKEN_VALUE=${PROXMOX_TOKEN_VALUE}
+      - PROXMOX_VERIFY_SSL=${PROXMOX_VERIFY_SSL:-false}
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./completedLabs:/app/completedLabs
+      - ./logs:/app/logs
+      - ./scripts:/app/scripts
+    command: celery -A tasks worker --loglevel=info --concurrency=4
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: labmanager-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - .:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+
+volumes:
+  redis-data:
+  postgres-data:

@@ -49,3 +49,4 @@ credentials.json
 *.bak
 *.swp
 *~
+__pycache__/
